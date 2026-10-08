@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Cliente del servicio de login seguro</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">NestJS · Prisma · PostgreSQL · NIST CSF 2.0</p>
+        <h1>Servicio de login seguro</h1>
+      </div>
+      <nav class="nav" aria-label="Secciones">
+        <a href="#/acceso" data-view="acceso">Acceso</a>
+        <a href="#/panel" data-view="panel">Panel de seguridad</a>
+      </nav>
+      <span class="badge" id="api-badge">comprobando API…</span>
+    </header>
+
+    <main>
+      <!-- ============ Vista 1: registro / login ============ -->
+      <section id="view-acceso" class="view" hidden>
+        <p class="subtitle">
+          Interactúa con la API real: registro, login, perfil, renovación de
+          sesión y logout. El token de acceso se guarda solo en memoria y el
+          refresh viaja en una cookie HttpOnly que el JavaScript nunca ve.
+        </p>
+
+        <div class="grid">
+          <article class="card">
+            <h2>Crear cuenta</h2>
+            <form id="register-form" autocomplete="on">
+              <label>
+                Email
+                <input type="email" name="email" required placeholder="tu@correo.com" autocomplete="username" />
+              </label>
+              <label>
+                Contraseña
+                <input type="password" name="password" required minlength="12" placeholder="mínimo 12 caracteres" autocomplete="new-password" />
+              </label>
+              <p class="hint">
+                La política rechaza contraseñas predecibles (zxcvbn). Una válida:
+                <code>Tr0p-S3gura!2026</code>.
+              </p>
+              <button type="submit">Registrarse</button>
+            </form>
+          </article>
+
+          <article class="card">
+            <h2>Iniciar sesión</h2>
+            <form id="login-form" autocomplete="on">
+              <label>
+                Email
+                <input type="email" name="email" required placeholder="tu@correo.com" autocomplete="username" />
+              </label>
+              <label>
+                Contraseña
+                <input type="password" name="password" required placeholder="tu contraseña" autocomplete="current-password" />
+              </label>
+              <p class="hint">
+                Tras 5 intentos fallidos la cuenta se bloquea 15 minutos; el
+                servidor responde siempre “Credenciales inválidas”.
+              </p>
+              <button type="submit">Entrar</button>
+            </form>
+          </article>
+        </div>
+
+        <article class="card session">
+          <div class="session-head">
+            <h2>Sesión</h2>
+            <span class="state" id="session-state">sin sesión</span>
+          </div>
+          <dl class="session-data">
+            <div><dt>Usuario</dt><dd id="session-user">—</dd></div>
+            <div><dt>Access token</dt><dd id="session-token">—</dd></div>
+            <div><dt>Expira en</dt><dd id="session-exp">—</dd></div>
+          </dl>
+          <div class="actions">
+            <button id="btn-me" disabled>GET /users/me</button>
+            <button id="btn-refresh" disabled>POST /auth/refresh</button>
+            <button id="btn-logout" class="danger" disabled>Cerrar sesión</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="session-head">
+            <h2>Registro de peticiones</h2>
+            <button id="btn-clear-log" class="ghost">limpiar</button>
+          </div>
+          <ol class="log" id="log"></ol>
+        </article>
+
+        <section class="notes">
+          <h3>Cómo está protegida esta interfaz</h3>
+          <ul>
+            <li>El access token (15 min) vive solo en memoria: no hay localStorage que robar.</li>
+            <li>El refresh token es una cookie <code>HttpOnly; SameSite=Strict; Path=/auth/refresh</code>: el navegador la envía sola y el JS no puede leerla.</li>
+            <li>La renovación es de un solo uso: reutilizar un refresh ya canjeado revoca toda la sesión (<code>REUSE_DETECTED</code>).</li>
+            <li>Las peticiones con cookie validan <code>Origin</code> contra la whitelist (protección CSRF).</li>
+          </ul>
+        </section>
+      </section>
+
+      <!-- ============ Vista 2: panel de seguridad ============ -->
+      <section id="view-panel" class="view" hidden>
+        <div class="notice" id="panel-notice" hidden></div>
+
+        <div id="panel-content" hidden>
+          <div class="panel-head">
+            <p class="subtitle" id="panel-scope">
+              Usuarios con sesión vigente y últimos eventos de autenticación.
+              Solo accesible para administradores (<code>ADMIN_EMAILS</code>).
+            </p>
+            <div class="actions">
+              <button id="btn-panel-refresh">Actualizar</button>
+            </div>
+          </div>
+
+          <div class="stats" id="panel-stats"></div>
+
+          <article class="card">
+            <div class="session-head">
+              <h2>Usuarios activos</h2>
+              <span class="badge" id="active-count">—</span>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Sesiones</th>
+                    <th>Última actividad</th>
+                    <th>Cuenta</th>
+                    <th>Alta</th>
+                  </tr>
+                </thead>
+                <tbody id="active-rows"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="session-head">
+              <h2>Eventos de autenticación (logs)</h2>
+              <div class="filters">
+                <select id="events-type" aria-label="Filtrar por tipo de evento">
+                  <option value="">todos los tipos</option>
+                  <option>LOGIN_OK</option>
+                  <option>LOGIN_FAIL</option>
+                  <option>LOGIN_BLOCKED</option>
+                  <option>REGISTER_OK</option>
+                  <option>REGISTER_FAIL</option>
+                  <option>TOKEN_REFRESH</option>
+                  <option>REFRESH_INVALID</option>
+                  <option>REUSE_DETECTED</option>
+                  <option>LOGOUT</option>
+                  <option>RATE_LIMITED</option>
+                  <option>ADMIN_VIEW</option>
+                </select>
+                <select id="events-limit" aria-label="Número de eventos">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Email</th>
+                    <th>IP</th>
+                    <th>Detalle</th>
+                  </tr>
+                </thead>
+                <tbody id="events-rows"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>API en el mismo origen · HTTPS con TLS 1.2/1.3 · rate limit en nginx y en la aplicación</span>
+    </footer>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

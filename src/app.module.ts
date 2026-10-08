@@ -6,6 +6,7 @@ import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { randomUUID } from 'node:crypto';
 import { AuditModule } from './audit/audit.module.js';
+import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
@@ -76,6 +77,7 @@ import { UsersModule } from './users/users.module.js';
     AuditModule,
     AuthModule,
     UsersModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [

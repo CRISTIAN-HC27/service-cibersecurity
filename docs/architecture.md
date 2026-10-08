@@ -32,6 +32,8 @@ diseñado como evidencia práctica del **NIST Cybersecurity Framework 2.0**.
 
 Las tres piezas se levantan con `docker compose up` (`docker-compose.yml`);
 nginx termina TLS con el certificado autogenerado en `docker/nginx/generate-cert.sh`.
+La interfaz web (`web/`) se sirve como estáticos en `/app/` desde ese mismo
+nginx, por lo que sus llamadas a la API van al mismo origen (sin CORS).
 
 ## Módulos de la aplicación
 
@@ -42,6 +44,7 @@ nginx termina TLS con el certificado autogenerado en `docker/nginx/generate-cert
 | `health` | `GET /health` (liveness) y `GET /health/ready` (DB) |
 | `audit` | Escritura de eventos de autenticación en `AuthEvent` |
 | `common` | Rate limiting en memoria, decoradores (`@Public`, `@RateLimitKey`), filtro de excepciones |
+| `admin` | Panel de solo lectura (logs y usuarios activos) con `AdminGuard` (whitelist `ADMIN_EMAILS`) |
 | `prisma` | Cliente y conexión a la base de datos |
 | `config` | Esquema zod de variables de entorno con fallo temprano |
 
@@ -54,6 +57,9 @@ nginx termina TLS con el certificado autogenerado en `docker/nginx/generate-cert
 | POST | `/auth/refresh` | Cookie `refresh_token` + `OriginGuard` | `RATE_LIMIT_REFRESH_*` |
 | POST | `/auth/logout` | Cookie `refresh_token` | `RATE_LIMIT_REFRESH_*` |
 | GET | `/users/me` | JWT de acceso | global |
+| GET | `/admin/overview` | JWT + `AdminGuard` (`ADMIN_EMAILS`) | global |
+| GET | `/admin/active-users` | JWT + `AdminGuard` (`ADMIN_EMAILS`) | global |
+| GET | `/admin/events?limit=&type=` | JWT + `AdminGuard` (`ADMIN_EMAILS`) | global |
 | GET | `/health`, `/health/ready` | Público | global |
 
 Todo lo demás está **denegado por defecto** (el `JwtAuthGuard` es global y las
@@ -123,11 +129,13 @@ Ver `.env.example` para el listado completo. Resumen:
 | `ACCOUNT_MAX_FAILED_ATTEMPTS` / `ACCOUNT_LOCK_MINUTES` | 5 / 15 min | bloqueo de cuenta |
 | `COOKIE_SECURE` | `true` | obligatorio en producción |
 | `TRUST_PROXY` | `false` | solo detrás de nginx |
-| `CORS_ORIGINS` | `http://localhost:5173` | whitelist, sin `*` |
+| `CORS_ORIGINS` | `http://localhost:5173` | whitelist, sin `*` (incluir el origen de la interfaz, p. ej. `https://localhost`) |
+| `ADMIN_EMAILS` | vacío (panel deshabilitado) | whitelist de admins del panel `/admin/*`, sin vía auto-registro |
 
 ## Desarrollo y pruebas
 
-- **Producción local**: `docker compose up --build` → https://localhost:8443.
+- **Producción local**: `docker compose up --build` → API en https://localhost
+  e interfaz web en https://localhost/app/.
 - **Desarrollo**: PostgreSQL en `127.0.0.1:5433` (cluster de usuario),
   `npm run start:dev`, `npm run prisma:migrate`.
 - **Pruebas**: `npm run lint`, `npm run typecheck`, `npm test` (17 unit),

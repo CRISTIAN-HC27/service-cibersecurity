@@ -36,7 +36,29 @@ docker compose up --build
 
 - API: `https://localhost` (redirige desde `http://localhost`; certificado
   autogenerado → usar `-k` en curl o aceptar el aviso en el navegador)
+- Interfaz web (cliente del servicio): **`https://localhost/app/`**
 - PostgreSQL: `127.0.0.1:${POSTGRES_PORT:-5433}` (solo para desarrollo local)
+
+### Interfaz web
+
+`web/` es un cliente HTML/CSS/JS sin build (sin frameworks ni dependencias)
+que nginx sirve como estáticos en `/app/`. Tiene dos vistas con navegación:
+
+- **Acceso** (`#/acceso`): registrarse, iniciar sesión, consultar `/users/me`,
+  renovar la sesión y cerrar sesión contra la API real.
+- **Panel de seguridad** (`#/panel`): usuarios con sesión vigente y los
+  últimos eventos de autenticación (`/admin/*`). Solo para los correos de
+  `ADMIN_EMAILS`; si no eres admin verás `403`.
+
+- Mismo origen que la API → sin CORS entre medias y la cookie
+  `SameSite=Strict` funciona sin problemas.
+- El access token se guarda **solo en memoria** (nada en `localStorage`); el
+  refresh es una cookie `HttpOnly` que el JavaScript nunca lee.
+- `CORS_ORIGINS` debe incluir el origen con el que abres la interfaz
+  (p. ej. `https://localhost`) para que `OriginGuard` acepte refresh y logout.
+- Se puede abrir también sin Docker (`web/index.html`), apuntando a la API con
+  `CORS_ORIGINS` configurado; en ese caso usa un servidor local, no `file://`.
+
 
 ### Desarrollo local
 
@@ -59,10 +81,13 @@ impide el arranque con un mensaje concreto.
 | POST | `/auth/refresh` | cookie `refresh_token` + `Origin` | 30 / 60 s |
 | POST | `/auth/logout` | cookie `refresh_token` | 30 / 60 s |
 | GET | `/users/me` | JWT de acceso | global |
+| GET | `/admin/overview`, `/admin/active-users`, `/admin/events` | JWT + `ADMIN_EMAILS` | global |
 | GET | `/health`, `/health/ready` | público | global |
 
 Todo lo demás está **denegado por defecto** (`JwtAuthGuard` global + `@Public()`
-explícito).
+explícito). El panel `/admin/*` es de **solo lectura** y solo accesible para
+los correos listados en `ADMIN_EMAILS` (vacío = deshabilitado); cada vista se
+audita como evento `ADMIN_VIEW`.
 
 Ejemplo:
 
@@ -106,6 +131,7 @@ Las e2e levantan la **misma aplicación real** (`configureApp` compartido con
 ```
 src/
 ├── auth/          registro, login, sesión (rotación), guards, política
+├── admin/         panel de solo lectura (logs, usuarios activos) + AdminGuard
 ├── audit/         eventos de autenticación (evidencia DE.CM)
 ├── common/        rate limit, decoradores @Public/@RateLimitKey, filtros
 ├── config/        esquema zod de entorno (fallo temprano)
@@ -115,6 +141,7 @@ src/
 └── configure-app.ts  seguridad compartida entre prod y tests
 prisma/            esquema + migraciones
 docker/            nginx, entrypoint, generación de certificados
+web/               interfaz web (cliente del servicio, servida en /app/)
 test/              e2e (auth, security) + utilidades
 docs/              entregables NIST
 ```

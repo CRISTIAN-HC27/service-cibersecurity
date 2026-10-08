@@ -12,7 +12,8 @@ export type AuthEventType =
   | 'REFRESH_INVALID'
   | 'REUSE_DETECTED'
   | 'LOGOUT'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'ADMIN_VIEW';
 
 export interface AuthEventContext {
   userId?: string;

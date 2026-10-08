@@ -27,7 +27,7 @@ evidencia verificable (código, configuración o prueba).
 | --- | --- | --- |
 | PR.AA-01 | Acceso identificado y gestionado: usuarios con credenciales únicas, JWT con `sub` | `src/auth/auth.service.ts`, `src/auth/strategies/*` |
 | PR.AA-03 | Gestión segura de autenticadores: argon2id, zxcvbn, política 12–128, rotación de refresh, revocación en logout | `src/auth/password-policy.service.ts`, `src/auth/session.service.ts` |
-| PR.AA-05 | Sesión protegida: expiración, `SameSite=Strict`, `HttpOnly`, origen validado | `src/auth/session.service.ts`, `src/auth/guards/origin.guard.ts` |
+| PR.AA-05 | Sesión protegida: expiración, `SameSite=Strict`, `HttpOnly`, origen validado; acceso de solo lectura a logs solo para administradores (`ADMIN_EMAILS`) | `src/auth/session.service.ts`, `src/auth/guards/origin.guard.ts`, `src/admin/guards/admin.guard.ts` |
 | PR.PS-01 | Acceso de red permitido y gestionado: CORS whitelist, rutas públicas explícitas | `src/configure-app.ts`, `@Public()` |
 | PR.PS-02 | Protecciones de seguridad en la infraestructura: helmet, TLS 1.2/1.3, HSTS, nginx | `docker/nginx/nginx.conf`, `src/configure-app.ts` |
 | PR.DS-01/02 | Protección de datos en reposo/tránsito: hashes argon2id y SHA-256, TLS, cookies `Secure` | `prisma/schema.prisma`, `src/auth/session.service.ts` |
@@ -39,7 +39,7 @@ evidencia verificable (código, configuración o prueba).
 | Subcategoría | Implementación | Evidencia |
 | --- | --- | --- |
 | DE.CM-01 | La red se monitorea: logs JSON de acceso/error con pino + acceso log de nginx | `src/app.module.ts` (LoggerModule), `docker/nginx/nginx.conf` |
-| DE.CM-03 | El servicio se monitorea para actividad no autorizada: eventos de auditoría de autenticación | `src/audit/audit.service.ts`, tabla `auth_events` |
+| DE.CM-03 | El servicio se monitorea para actividad no autorizada: eventos `REGISTER_OK/FAIL`, `LOGIN_OK/FAIL/BLOCKED`, `TOKEN_REFRESH`, `REFRESH_INVALID`, `REUSE_DETECTED`, `LOGOUT`, `ADMIN_VIEW` consultables por el panel `/admin/events` | `src/audit/audit.service.ts`, `src/admin/`, tabla `auth_events` |
 | DE.CM-09 | Intentos de acceso anómalos computados: `LOGIN_FAIL`, `LOGIN_BLOCKED`, `REUSE_DETECTED`, contadores de rate limit | `test/auth.e2e-spec.ts`, `test/security.e2e-spec.ts` |
 | DE.AE-03 | Análisis de eventos para correlacionarlos | índices `[type, createdAt]`, `[userId, createdAt]` en `AuthEvent` |
 

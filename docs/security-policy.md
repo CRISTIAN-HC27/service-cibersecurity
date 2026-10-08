@@ -38,6 +38,10 @@ Las contraseñas nunca se registran en logs (pino redacta `authorization`,
 - `OriginGuard` valida `Origin`/`Sec-Fetch-Site` en las rutas con cookie
   (CSRF).
 - Recurso autenticado de ejemplo: `GET /users/me`.
+- **Panel de administración** (`/admin/*`): el rol se resuelve contra la
+  lista blanca `ADMIN_EMAILS` en cada petición (`AdminGuard`), nunca se
+  concede por auto-registro; con la lista vacía el panel queda deshabilitado.
+  Cada vista se audita como `ADMIN_VIEW`.
 
 ## 4. Rate limiting y bloqueo (DE.CM / PR.AA-03)
 

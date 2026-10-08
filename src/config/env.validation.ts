@@ -41,6 +41,17 @@ export const envSchema = z
         message: 'CORS_ORIGINS no admite el wildcard "*"',
       }),
     COOKIE_SECURE: asBoolean.default('true'),
+    // Correos con acceso al panel de administración (/admin/*). Vacío = panel
+    // deshabilitado. Nunca se concede el rol por auto-registro (PR.AA).
+    ADMIN_EMAILS: z
+      .string()
+      .default('')
+      .transform((v) =>
+        v
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     // Solo true cuando hay un proxy (nginx) que sobrescribe X-Forwarded-For.
     // Si se activa sin proxy, un atacante puede falsear la IP y evadir el rate limit.
     TRUST_PROXY: asBoolean.default('false'),

@@ -55,6 +55,7 @@ services:
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/certs:/etc/nginx/certs:ro
+      - ./web:/usr/share/nginx/web:ro
     depends_on:
       api:
         condition: service_healthy
