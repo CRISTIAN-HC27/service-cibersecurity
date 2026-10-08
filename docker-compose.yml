@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-JQhWXsB241mubc1Wyyr4x9k5VffYFf-x}
+      POSTGRES_DB: ${POSTGRES_DB:-login_service}
+    ports:
+      # Solo para desarrollo local; en produccion no publicar el puerto de BD
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d $${POSTGRES_DB:-login_service}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  api:
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      # Detrás de nginx: confiar en X-Forwarded-For solo porque nginx lo
+      # sobrescribe (ver docker/nginx/nginx.conf).
+      TRUST_PROXY: "true"
+      DATABASE_URL: postgresql://app:${POSTGRES_PASSWORD:-JQhWXsB241mubc1Wyyr4x9k5VffYFf-x}@postgres:5432/${POSTGRES_DB:-login_service}
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - backend
+
+  # Proxy inverso: TLS, cabeceras de seguridad y rate limit de red.
+  # Es el único servicio expuesto al exterior.
+  nginx:
+    image: nginx:1.29-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      # El puerto 80 solo redirige: se comprueba el endpoint TLS real
+      # (certificado autofirmado, por eso --no-check-certificate).
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- --no-check-certificate https://127.0.0.1/nginx-health | grep -q ok",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  pgdata:

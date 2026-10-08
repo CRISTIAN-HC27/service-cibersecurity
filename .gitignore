@@ -1,0 +1,25 @@
+# Dependencias
+node_modules/
+
+# Build
+dist/
+*.tsbuildinfo
+
+# Secretos - NUNCA versionar (GV.PO / PR.DS)
+.env
+.env.*
+!.env.example
+
+# Prisma
+src/generated/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# SO / editor
+.DS_Store
+.idea/
+.vscode/
+coverage/
